@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>明星人眼辨識遊戲</title>
+    <style>
+        body {
+            font-family: "Microsoft JhengHei", Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #2c3e50;
+            color: white;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 左側主遊戲區 */
+        #main-area {
+            flex: 3;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-right: 2px solid #ecf0f1;
+            position: relative;
+        }
+
+        /* 右側分數區 */
+        #sidebar {
+            flex: 1;
+            background-color: #34495e;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 50px;
+        }
+
+        h1 { margin: 0; font-size: 2.5rem; }
+        .score-box {
+            background: #e74c3c;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+            text-align: center;
+            width: 80%;
+        }
+        .score-number {
+            font-size: 4rem;
+            font-weight: bold;
+        }
+        .score-label { font-size: 1.2rem; }
+
+        .instructions {
+            margin-top: 40px;
+            padding: 20px;
+            font-size: 1rem;
+            line-height: 1.8;
+            color: #bdc3c7;
+        }
+        .key-hint {
+            font-weight: bold;
+            color: #f1c40f;
+        }
+
+        /* 遊戲元素 */
+        #setup-screen, #start-screen, #game-screen, #end-screen {
+            display: none; /* 預設隱藏，透過 JS 控制顯示 */
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+        }
+
+        /* 顯示狀態控制 */
+        .active { display: flex !important; }
+
+        button {
+            padding: 15px 40px;
+            font-size: 2rem;
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin-top: 20px;
+        }
+        button:hover { transform: scale(1.05); background-color: #2ecc71; }
+        
+        /* 檔案輸入樣式 */
+        #folder-input { display: none; }
+        .upload-btn {
+            background-color: #3498db; 
+            font-size: 1.5rem;
+        }
+
+        /* 圖片顯示 */
+        #quiz-image {
+            max-width: 80%;
+            max-height: 60vh;
+            border: 5px solid white;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            margin-bottom: 20px;
+        }
+
+        /* 答案顯示 */
+        #answer-display {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #f1c40f;
+            min-height: 3.5rem;
+            text-shadow: 2px 2px 4px black;
+        }
+
+        #status-msg {
+            margin-top: 10px;
+            font-size: 1.2rem;
+            color: #bdc3c7;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 左側遊戲區 -->
+    <div id="main-area">
+        
+        <!-- 步驟 1: 選取資料夾 -->
+        <div id="setup-screen" class="active">
+            <h2>步驟 1: 載入題目</h2>
+            <p>請點選下方按鈕，選取您的「人眼辨識」資料夾</p>
+            <button class="upload-btn" onclick="document.getElementById('folder-input').click()">選取資料夾</button>
+            <input type="file" id="folder-input" webkitdirectory directory multiple onchange="handleFiles(this.files)">
+            <p id="file-count" style="margin-top:10px; color:#f39c12;"></p>
+        </div>
+
+        <!-- 步驟 2: 開始按鈕 -->
+        <div id="start-screen">
+            <h2>題目載入完成！</h2>
+            <button onclick="startGame()">開始遊戲</button>
+        </div>
+
+        <!-- 步驟 3: 遊戲進行中 -->
+        <div id="game-screen">
+            <img id="quiz-image" src="" alt="猜猜是誰">
+            <div id="answer-display"></div>
+            <div id="status-msg">請按鍵盤作答...</div>
+        </div>
+
+        <!-- 步驟 4: 遊戲結束 -->
+        <div id="end-screen">
+            <h1>遊戲結束</h1>
+            <p style="font-size: 1.5rem;">所有題目已播放完畢</p>
+            <button onclick="location.reload()">重新整理</button>
+        </div>
+    </div>
+
+    <!-- 右側資訊欄 -->
+    <div id="sidebar">
+        <div class="score-box">
+            <div class="score-label">目前分數</div>
+            <div class="score-number" id="score-display">0</div>
+        </div>
+
+        <div class="instructions">
+            <h3>計分規則 (鍵盤操作):</h3>
+            <p><span class="key-hint">[1]</span> 答對 (+150分)</p>
+            <p><span class="key-hint">[2]</span> 答錯 (+0分)</p>
+            <p><span class="key-hint">[3]</span> 答對一半 (+75分)</p>
+            <hr style="border-color: #7f8c8d;">
+            <p>每題按鍵後顯示答案<br>1.5秒後自動下一題</p>
+        </div>
+    </div>
+
+    <script>
+        // 遊戲變數
+        let score = 0;
+        let imageFiles = []; // 儲存所有圖片檔案物件
+        let availableIndices = []; // 儲存還沒出現過的圖片索引
+        let currentFile = null;
+        let isWaiting = false; // 是否正在等待跳轉下一題
+        let gameActive = false; // 遊戲是否正在進行
+
+        // 處理資料夾選取
+        function handleFiles(files) {
+            imageFiles = [];
+            // 過濾出 png 檔
+            for (let i = 0; i < files.length; i++) {
+                if (files[i].type === 'image/png' || files[i].name.toLowerCase().endsWith('.png')) {
+                    imageFiles.push(files[i]);
+                }
+            }
+
+            const countDisplay = document.getElementById('file-count');
+            
+            if (imageFiles.length === 0) {
+                countDisplay.textContent = "錯誤：在該資料夾中找不到 PNG 檔案。";
+                countDisplay.style.color = "red";
+                return;
+            }
+
+            countDisplay.textContent = `成功讀取 ${imageFiles.length} 張圖片。`;
+            countDisplay.style.color = "#2ecc71";
+
+            // 切換到開始畫面
+            setTimeout(() => {
+                document.getElementById('setup-screen').classList.remove('active');
+                document.getElementById('start-screen').classList.add('active');
+            }, 1000);
+        }
+
+        // 開始遊戲
+        function startGame() {
+            score = 0;
+            updateScoreDisplay();
+            
+            // 初始化索引陣列 (0 到 圖片數量-1)
+            availableIndices = [];
+            for(let i=0; i<imageFiles.length; i++) {
+                availableIndices.push(i);
+            }
+
+            document.getElementById('start-screen').classList.remove('active');
+            document.getElementById('game-screen').classList.add('active');
+            
+            gameActive = true;
+            nextQuestion();
+        }
+
+        // 下一題
+        function nextQuestion() {
+            if (availableIndices.length === 0) {
+                gameOver();
+                return;
+            }
+
+            // 重置狀態
+            isWaiting = false;
+            document.getElementById('answer-display').textContent = "";
+            document.getElementById('status-msg').textContent = "請按鍵盤作答 (1:對 / 2:錯 / 3:半對)";
+
+            // 隨機選取一個索引
+            const randomIndex = Math.floor(Math.random() * availableIndices.length);
+            const fileIndex = availableIndices[randomIndex];
+            
+            // 從可用清單中移除，確保不重複
+            availableIndices.splice(randomIndex, 1);
+
+            currentFile = imageFiles[fileIndex];
+
+            // 顯示圖片
+            const imgUrl = URL.createObjectURL(currentFile);
+            document.getElementById('quiz-image').src = imgUrl;
+        }
+
+        // 處理鍵盤事件
+        document.addEventListener('keydown', function(event) {
+            // 如果遊戲沒開始，或正在等待跳轉，則忽略按鍵
+            if (!gameActive || isWaiting) return;
+
+            const key = event.key;
+            let points = 0;
+            let actionText = "";
+            let isValidKey = false;
+
+            if (key === '1') {
+                points = 150;
+                actionText = "答對！ (+150)";
+                isValidKey = true;
+            } else if (key === '2') {
+                points = 0;
+                actionText = "答錯 (+0)";
+                isValidKey = true;
+            } else if (key === '3') {
+                points = 75;
+                actionText = "答對一半 (+75)";
+                isValidKey = true;
+            }
+
+            if (isValidKey) {
+                isWaiting = true; // 鎖定，防止重複按鍵
+                
+                // 更新分數
+                score += points;
+                updateScoreDisplay();
+
+                // 顯示答案
+                showAnswer(actionText);
+
+                // 1.5秒後下一題
+                setTimeout(nextQuestion, 1500);
+            }
+        });
+
+        // 顯示答案邏輯
+        function showAnswer(actionText) {
+            // 從檔名取得答案 (去除 .png 副檔名)
+            let answer = currentFile.name.replace(/\.png$/i, '');
+            
+            const answerDiv = document.getElementById('answer-display');
+            const statusDiv = document.getElementById('status-msg');
+
+            answerDiv.textContent = answer;
+            statusDiv.textContent = actionText;
+        }
+
+        // 更新分數畫面
+        function updateScoreDisplay() {
+            // 加入數字跳動效果
+            const display = document.getElementById('score-display');
+            display.textContent = score;
+            display.style.transform = "scale(1.2)";
+            setTimeout(() => {
+                display.style.transform = "scale(1)";
+            }, 200);
+        }
+
+        // 遊戲結束
+        function gameOver() {
+            gameActive = false;
+            document.getElementById('game-screen').classList.remove('active');
+            document.getElementById('end-screen').classList.add('active');
+        }
+
+        // 防止圖片拖曳
+        document.getElementById('quiz-image').addEventListener('dragstart', (e) => e.preventDefault());
+    </script>
+</body>
+</html>
