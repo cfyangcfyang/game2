@@ -224,7 +224,7 @@
 </div>
 
 <script>
-    // 圖片所在資料夾
+    // 圖片在 image 資料夾
     const BASE_PATH = "images/";
 
     const imageFiles = [
@@ -334,10 +334,10 @@
         score = 0;
         updateScoreDisplay();
 
-        // 同時保存完整路徑與原始檔名
+        // 同時把「檔名不含路徑」存起來，之後顯示用
         questions = imageFiles.map(name => ({
             file: BASE_PATH + name,
-            name: name
+            name: name.replace(/\.png$/i, "")
         }));
         shuffle(questions);
 
@@ -396,14 +396,16 @@
         else if (event.key === "3") handleAnswer(3);
     });
 
-    // 顯示評語 + 檔名
+    // 顯示評語＋檔名（不含 .png）
     function showAnswer(text) {
         const answerDiv = document.getElementById("answer-display");
         const statusDiv = document.getElementById("status-msg");
 
-        // 在圖片下方顯示檔名
-        const fileName = currentQuestion ? currentQuestion.name : "";
-        answerDiv.textContent = fileName + "｜" + text;
+        // currentQuestion.name 已經是去掉 .png 的檔名
+        const filename = currentQuestion ? currentQuestion.name : "";
+
+        // 上方顯示評語，下方顯示檔名
+        answerDiv.innerHTML = text + "<br>" + filename;
 
         statusDiv.textContent = "1.5 秒後自動下一題";
     }
@@ -428,4 +430,3 @@
 </script>
 </body>
 </html>
-
