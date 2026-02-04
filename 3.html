@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>明星人眼辨識遊戲</title>
+    <style>
+        :root {
+            --bg-main: #2c3e50;
+            --bg-side: #34495e;
+            --accent: #e74c3c;
+            --accent-light: #2ecc71;
+            --text-light: #ecf0f1;
+            --text-muted: #bdc3c7;
+            --score-highlight: #f1c40f;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: "Microsoft JhengHei", Arial, sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-light);
+            min-height: 100vh;
+            display: flex;
+        }
+
+        .container {
+            display: flex;
+            flex: 1;
+            min-height: 100vh;
+        }
+
+        #main-area {
+            flex: 3;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-right: 2px solid #ecf0f1;
+            padding: 16px;
+        }
+
+        #sidebar {
+            flex: 1;
+            background-color: var(--bg-side);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 24px 16px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(1.8rem, 3vw, 2.4rem);
+            text-align: center;
+        }
+
+        .score-box {
+            background: var(--accent);
+            padding: 16px;
+            border-radius: 12px;
+            margin-top: 12px;
+            text-align: center;
+            width: 100%;
+            max-width: 260px;
+        }
+        .score-number {
+            font-size: clamp(2.8rem, 5vw, 3.5rem);
+            font-weight: bold;
+        }
+        .score-label {
+            font-size: 1rem;
+        }
+
+        .instructions {
+            margin-top: 24px;
+            padding: 12px;
+            font-size: 0.95rem;
+            line-height: 1.7;
+            color: var(--text-muted);
+            width: 100%;
+            max-width: 280px;
+        }
+        .key-hint {
+            font-weight: bold;
+            color: var(--score-highlight);
+        }
+
+        #start-screen, #game-screen, #end-screen {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+        }
+        .active { display: flex !important; }
+
+        button {
+            padding: 12px 28px;
+            font-size: 1rem;
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: transform 0.15s, background-color 0.15s;
+            margin-top: 12px;
+        }
+        button:hover {
+            transform: scale(1.03);
+            background-color: var(--accent-light);
+        }
+        button:active {
+            transform: scale(0.97);
+        }
+
+        #quiz-image {
+            max-width: 100%;
+            max-height: 60vh;
+            border: 4px solid white;
+            box-shadow: 0 0 12px rgba(0,0,0,0.6);
+            margin-bottom: 16px;
+            border-radius: 10px;
+            object-fit: contain;
+        }
+
+        #answer-display {
+            font-size: clamp(1.6rem, 3vw, 2.1rem);
+            font-weight: bold;
+            color: var(--score-highlight);
+            min-height: 2.5rem;
+            text-shadow: 2px 2px 4px black;
+            text-align: center;
+        }
+
+        #status-msg {
+            margin-top: 8px;
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .btn-small {
+            padding: 10px 16px;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+            #main-area {
+                flex: none;
+                border-right: none;
+                border-bottom: 2px solid #ecf0f1;
+                padding: 12px;
+            }
+            #sidebar {
+                flex: none;
+                padding-top: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <!-- 主遊戲區 -->
+    <div id="main-area">
+        <!-- 開始畫面 -->
+        <div id="start-screen" class="active">
+            <h1>明星人眼辨識</h1>
+            <p style="font-size:0.95rem; margin-top:10px; color:#bdc3c7; text-align:center;">
+                <br>
+                點選開始遊戲即可隨機顯示任一張圖片
+            </p>
+            <button onclick="startGame()">開始遊戲</button>
+        </div>
+
+        <!-- 遊戲畫面 -->
+        <div id="game-screen">
+            <img id="quiz-image" src="" alt="猜猜是誰">
+            <div id="answer-display"></div>
+            <div id="status-msg">請作答...</div>
+
+            <!-- 手機／平板操作按鈕 -->
+            <div class="btn-group">
+                <button class="btn-small" onclick="handleAnswer(1)">答對 (+150)</button>
+                <button class="btn-small" onclick="handleAnswer(2)">答錯 (+0)</button>
+                <button class="btn-small" onclick="handleAnswer(3)">答對一半 (+75)</button>
+            </div>
+        </div>
+
+        <!-- 結束畫面 -->
+        <div id="end-screen">
+            <h1>遊戲結束</h1>
+            <p style="font-size:1.1rem; text-align:center;">所有圖片都播放完畢</p>
+            <button onclick="location.reload()">重新開始</button>
+        </div>
+    </div>
+
+    <!-- 右側資訊欄 -->
+    <div id="sidebar">
+        <div class="score-box">
+            <div class="score-label">目前分數</div>
+            <div class="score-number" id="score-display">0</div>
+        </div>
+
+        <div class="instructions">
+            <h3 style="margin-top:0;">操作方式：</h3>
+            <p><span class="key-hint">手機 / 平板：</span> 點選下方三個按鈕作答。</p>
+            <p><span class="key-hint">電腦鍵盤：</span> 也可以按 [1] [2] [3] 作答。</p>
+            <hr style="border-color:#7f8c8d;">
+            <p>每題作答後顯示評語，約 1.5 秒自動切換下一張圖片。</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 圖片所在資料夾
+    const BASE_PATH = "image/";
+
+    const imageFiles = [
+        "Asa.png",
+        "Bailey.png",
+        "Danielle.png",
+        "Felix.png",
+        "Haerin.png",
+        "Hello Kitty.png",
+        "I.N.png",
+        "IU.png",
+        "James 趙雨凡.png",
+        "Jennie.png",
+        "Jisoo.png",
+        "Karina.png",
+        "Lee Know.png",
+        "liz.png",
+        "NI-KI 西村力.png",
+        "Rose.png",
+        "Soobin崔秀彬.png",
+        "Tarzzan.png",
+        "Vernon崔瀚率.png",
+        "Winter.png",
+        "Wonhee 李沅禧.png",
+        "Yuna.png",
+        "一刀兩斷.png",
+        "一十二鳥.png",
+        "七上八下.png",
+        "三人成虎.png",
+        "吳宥諺學長.png",
+        "周媛(X型靈動眼神).png",
+        "周子瑜.png",
+        "周杰倫.png",
+        "大耳狗.png",
+        "安俞真.png",
+        "宋江.png",
+        "宋雨琦.png",
+        "宮脇咲良.png",
+        "崔傘.png",
+        "崔然竣.png",
+        "庫洛米.png",
+        "張凌赫.png",
+        "張口結舌.png",
+        "張員瑛.png",
+        "打草驚蛇.png",
+        "振宇.png",
+        "明宰鉉.png",
+        "曹薇娟.png",
+        "朝三暮四.png",
+        "朴寶劍.png",
+        "李珠珢.png",
+        "林宥綺學姐😜.png",
+        "楊淽喬學姐(大漂亮).png",
+        "汗流浹背.png",
+        "王世堅.png",
+        "王鶴棣.png",
+        "玲木園子.png",
+        "申惟.png",
+        "白鹿.png",
+        "破涕而笑.png",
+        "福部平次.png",
+        "章昊.png",
+        "章若楠.png",
+        "華莎.png",
+        "葉舒華.png",
+        "薛侖娥.png",
+        "虞書欣♡꙼̈.png",
+        "許允真.png",
+        "許光漢.png",
+        "謝詠媛學姐!.png",
+        "趙露思.png",
+        "車銀優.png",
+        "鄭雅賢.png",
+        "金智媛.png",
+        "金玟(珉)奎.png",
+        "錦上添花.png",
+        "阿滴.png",
+        "陳穎柔學姐~.png",
+        "順理成章.png",
+        "食指大動.png",
+        "高允(胤)禎.png",
+        "鴉雀無聲.png",
+        "鶴立雞群.png",
+        "黃寅燁.png",
+        "黃鉉辰.png"
+    ];
+
+    let score = 0;
+    let questions = [];
+    let currentQuestion = null;
+    let isWaiting = false;
+    let gameActive = false;
+
+    function shuffle(arr) {
+        for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+    }
+
+    function startGame() {
+        if (imageFiles.length === 0) {
+            alert("目前沒有設定任何圖片。");
+            return;
+        }
+
+        score = 0;
+        updateScoreDisplay();
+
+        // 同時保存完整路徑與原始檔名
+        questions = imageFiles.map(name => ({
+            file: BASE_PATH + name,
+            name: name
+        }));
+        shuffle(questions);
+
+        document.getElementById("start-screen").classList.remove("active");
+        document.getElementById("game-screen").classList.add("active");
+        gameActive = true;
+        nextQuestion();
+    }
+
+    function nextQuestion() {
+        if (questions.length === 0) {
+            gameOver();
+            return;
+        }
+
+        isWaiting = false;
+        document.getElementById("answer-display").textContent = "";
+        document.getElementById("status-msg").textContent =
+            "請作答（可按按鈕或鍵盤 1 / 2 / 3）";
+
+        currentQuestion = questions.pop();
+        const img = document.getElementById("quiz-image");
+        img.src = currentQuestion.file;
+    }
+
+    function handleAnswer(type) {
+        if (!gameActive || isWaiting) return;
+
+        let points = 0;
+        let actionText = "";
+
+        if (type === 1) {
+            points = 150;
+            actionText = "答對！ (+150)";
+        } else if (type === 2) {
+            points = 0;
+            actionText = "答錯 (+0)";
+        } else if (type === 3) {
+            points = 75;
+            actionText = "答對一半 (+75)";
+        } else {
+            return;
+        }
+
+        isWaiting = true;
+        score += points;
+        updateScoreDisplay();
+        showAnswer(actionText);
+        setTimeout(nextQuestion, 1500);
+    }
+
+    document.addEventListener("keydown", function (event) {
+        if (!gameActive || isWaiting) return;
+        if (event.key === "1") handleAnswer(1);
+        else if (event.key === "2") handleAnswer(2);
+        else if (event.key === "3") handleAnswer(3);
+    });
+
+    // 顯示評語 + 檔名
+    function showAnswer(text) {
+        const answerDiv = document.getElementById("answer-display");
+        const statusDiv = document.getElementById("status-msg");
+
+        // 在圖片下方顯示檔名
+        const fileName = currentQuestion ? currentQuestion.name : "";
+        answerDiv.textContent = fileName + "｜" + text;
+
+        statusDiv.textContent = "1.5 秒後自動下一題";
+    }
+
+    function updateScoreDisplay() {
+        const display = document.getElementById("score-display");
+        display.textContent = score;
+        display.style.transform = "scale(1.15)";
+        setTimeout(() => {
+            display.style.transform = "scale(1)";
+        }, 180);
+    }
+
+    function gameOver() {
+        gameActive = false;
+        document.getElementById("game-screen").classList.remove("active");
+        document.getElementById("end-screen").classList.add("active");
+    }
+
+    document.getElementById("quiz-image")
+        .addEventListener("dragstart", e => e.preventDefault());
+</script>
+</body>
+</html>
